@@ -22,8 +22,8 @@ func NewNotificationFromMonitorString(ms string) (*Notification, error) {
 	summary := false
 
 	n := &Notification{
-		Body:    "n/a",
-		Summary: "n/a",
+		Body:    "",
+		Summary: "",
 	}
 
 	s := bufio.NewScanner(strings.NewReader(ms))
