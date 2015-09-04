@@ -91,3 +91,21 @@ func TestNotificationThreema(t *testing.T) {
 func TestNotificationClock(t *testing.T) {
 	testNewNotificationFromMonitorString(t, clockMonitorString, clockNotification)
 }
+
+var testEmptyTable = []struct {
+	n        *Notification
+	expected bool
+}{
+	{&Notification{"NonEmptySummary", "NonEmptyBody"}, false},
+	{&Notification{"", "NonEmptyBody"}, false},
+	{&Notification{"NonEmptySummary", ""}, true},
+	{&Notification{"", ""}, true},
+}
+
+func TestEmpty(t *testing.T) {
+	for _, tt := range testEmptyTable {
+		if tt.n.IsEmpty() != tt.expected {
+			t.Errorf("%#v.IsEmpty() != %v", tt.n, tt.expected)
+		}
+	}
+}

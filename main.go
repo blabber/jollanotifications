@@ -47,7 +47,6 @@ type Notification struct {
 
 func main() {
 	c := make(chan *Notification)
-
 	go sniffDbus(dbusReader, c)
 
 	go func() {
@@ -124,6 +123,11 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 			fmt.Fprintf(os.Stderr, "ERR: %v\n", err)
 			continue
 		}
+
+		if n.IsEmpty() {
+			continue
+		}
+
 		out <- &Notification{
 			n,
 			time.Now().Format(time.RFC822),

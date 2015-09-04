@@ -7,12 +7,12 @@ import (
 
 // Notification represents a notification.
 type Notification struct {
-	// Body is the body of the notification.
-	Body string
-
 	// Summary is the summary of the notification. This is misleading
 	// though, as this normally describes the source of the notification.
 	Summary string
+
+	// Body is the body of the notification.
+	Body string
 }
 
 // NewNotificationFromMonitorString returns the *Notification represented by
@@ -21,10 +21,7 @@ func NewNotificationFromMonitorString(ms string) (*Notification, error) {
 	body := false
 	summary := false
 
-	n := &Notification{
-		Body:    "",
-		Summary: "",
-	}
+	n := &Notification{}
 
 	s := bufio.NewScanner(strings.NewReader(ms))
 	for s.Scan() {
@@ -57,6 +54,15 @@ func NewNotificationFromMonitorString(ms string) (*Notification, error) {
 	}
 
 	return n, nil
+}
+
+// IsEmpty returns true if *Notification n does not contain usable data. This
+// is the case if n does not contain a non-empty Body.
+func (n *Notification) IsEmpty() bool {
+	if len(n.Body) > 0 {
+		return false
+	}
+	return true
 }
 
 // extractString removes the substring prefixing the first and suffixing the
