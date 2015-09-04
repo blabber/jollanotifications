@@ -41,7 +41,9 @@ func NewNotificationFromMonitorString(ms string) (*Notification, error) {
 			continue
 		}
 		if strings.Contains(s.Text(), `string "x-nemo-owner"`) {
-			summary = true
+			if len(n.Summary) == 0 {
+				summary = true
+			}
 			continue
 		}
 		if strings.Contains(s.Text(), `string "x-nemo-preview-summary"`) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var monitorStrings = []string{threemaMonitorString, clockMonitorString}
+var monitorStrings = []string{threemaMonitorString, clockMonitorString, commhistorydMonitorString}
 var completeMonitorString = strings.Join(monitorStrings, "\n")
 
 func TestScanNotifications(t *testing.T) {
