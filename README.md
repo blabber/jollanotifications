@@ -10,4 +10,3 @@ TODO
 
  * Make the whole thing configurable (DO NOT BIND TO ALL INTERFACES)
  * Some kind of logging
- * Do not fail silently in web interface if a refresh of the view model fails
