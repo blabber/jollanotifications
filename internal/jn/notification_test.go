@@ -123,22 +123,12 @@ var commhistorydNotification = &Notification{
 	Summary: "Herp Derp",
 }
 
-func (na *Notification) Equals(nb *Notification) bool {
-	if na.Body != nb.Body {
-		return false
-	}
-	if na.Summary != nb.Summary {
-		return false
-	}
-	return true
-}
-
 func testNewNotificationFromMonitorString(t *testing.T, ms string, n *Notification) {
 	nn, err := NewNotificationFromMonitorString(ms)
 	if err != nil {
 		t.Error(err)
 	}
-	if !nn.Equals(n) {
+	if *nn != *n {
 		t.Errorf("%#v != %#v", nn, n)
 	}
 }
