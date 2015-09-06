@@ -1,3 +1,9 @@
+// "THE BEER-WARE LICENSE" (Revision 42):
+// <tobias.rehbein@web.de> wrote this file. As long as you retain this notice
+// you can do whatever you want with this stuff. If we meet some day, and you
+// think this stuff is worth it, you can buy me a beer in return.
+//                                                             Tobias Rehbein
+
 // jollanotifications sniffs for notification events on the dbus and serves a
 // JSON encoded representation of the last 10 notifications via
 // ":8080/notifications". ":8080" serves a web view displaying these
@@ -83,8 +89,8 @@ func main() {
 // the monitor-dbus command or an error if something went wrong.
 type dbusReaderFunc func() (io.ReadCloser, error)
 
-// dbusReaderMock is a mock function for testing purposes. Opens the file "dbus.log" which should contain
-// the captured output of the command line
+// dbusReaderMock is a mock function for testing purposes. Opens the file
+// "dbus.log" which should contain the captured output of the command line
 //
 //    dbus-monitor "interface='org.freedesktop.Notifications',member='Notify'"
 func dbusReaderMock() (io.ReadCloser, error) {
