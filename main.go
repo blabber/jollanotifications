@@ -33,7 +33,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strings"
+	"path"
 	"sync"
 	"time"
 
@@ -96,7 +96,7 @@ func main() {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, strings.Join([]string{*htmlDir, r.URL.Path}, "/"))
+		http.ServeFile(w, r, path.Join(*htmlDir, r.URL.Path))
 	})
 
 	panic(http.ListenAndServe(*networkAddress, nil))
