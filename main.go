@@ -21,6 +21,8 @@
 //	      network address to listen on (default ":8080")
 //	-max int
 //	      maximum number of notifications to serve (default 10)
+//	-verbose
+//	      verbose logging
 //
 package main
 
@@ -42,6 +44,7 @@ import (
 
 var (
 	s                state
+	verbose          = flag.Bool("verbose", false, "verbose logging")
 	maxNotifications = flag.Int("max", 10, "maximum number of notifications to serve")
 	networkAddress   = flag.String("listen", ":8080", "network address to listen on")
 	htmlDir          = flag.String("html", "./html", "directory containing the web interface")
@@ -86,6 +89,10 @@ func main() {
 	}()
 
 	http.HandleFunc("/notifications", func(w http.ResponseWriter, r *http.Request) {
+		if *verbose {
+			logHTTPRequest(r)
+		}
+
 		s.RLock()
 		j, err := json.Marshal(s)
 		if err != nil {
@@ -148,6 +155,10 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 	s := bufio.NewScanner(r)
 	s.Split(jn.ScanNotifications)
 	for s.Scan() {
+		if *verbose {
+			log.Printf("D-Bus record: %v", s.Text())
+		}
+
 		n, err := jn.NewNotificationFromMonitorString(s.Text())
 		if err != nil {
 			log.Printf("Error: NewNotificationFromMonitorString: %v", err)
