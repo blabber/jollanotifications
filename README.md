@@ -8,5 +8,4 @@ A hackish solution to access my Jolla phone's notification via a web interface.
 TODO
 ----
 
- * Make the whole thing configurable (DO NOT BIND TO ALL INTERFACES)
  * Some kind of logging

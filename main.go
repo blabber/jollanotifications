@@ -4,17 +4,30 @@
 // think this stuff is worth it, you can buy me a beer in return.
 //                                                             Tobias Rehbein
 
-// jollanotifications sniffs for notification events on the dbus and serves a
-// JSON encoded representation of the last 10 notifications via
-// ":8080/notifications". ":8080" serves a web view displaying these
-// notifications.
+// jollanotifications serves a Jolla phone's notifications via a web interface.
 //
-// This is used to access a Jolla phones notifications via a web interface.
+// It sniffs for notification events on the dbus and serves a web view
+// displaying the last notifications. By default this web view is served via
+// "/index.html" on all network interfaces on port 8080.
+//
+// A JSON encoded representation of the displayed notifications can be accessed
+// via "/notifications".
+//
+// Flags:
+//
+//	-html string
+//	      directory containing the web interface (default "./html")
+//	-listen string
+//	      network address to listen on (default ":8080")
+//	-max int
+//	      maximum number of notifications to serve (default 10)
+//
 package main
 
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +42,9 @@ import (
 
 var (
 	s                state
-	maxNotifications int = 10
+	maxNotifications = flag.Int("max", 10, "maximum number of notifications to serve")
+	networkAddress   = flag.String("listen", ":8080", "network address to listen on")
+	htmlDir          = flag.String("html", "./html", "directory containing the web interface")
 )
 
 // state represents the shared state used by the sniffer and served via web. An
@@ -52,6 +67,8 @@ type Notification struct {
 }
 
 func main() {
+	flag.Parse()
+
 	c := make(chan *Notification)
 	go sniffDbus(dbusReader, c)
 
@@ -61,8 +78,8 @@ func main() {
 			// prepend the new *Notification to s.Notifications
 			s.Notifications = append([]*Notification{n}, s.Notifications...)
 			// trim s.Notifications to maximum size
-			if len(s.Notifications) >= maxNotifications {
-				s.Notifications = s.Notifications[:maxNotifications]
+			if len(s.Notifications) >= *maxNotifications {
+				s.Notifications = s.Notifications[:*maxNotifications]
 			}
 			s.Unlock()
 		}
@@ -79,10 +96,10 @@ func main() {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, strings.Join([]string{"html", r.URL.Path}, "/"))
+		http.ServeFile(w, r, strings.Join([]string{*htmlDir, r.URL.Path}, "/"))
 	})
 
-	panic(http.ListenAndServe(":8080", nil))
+	panic(http.ListenAndServe(*networkAddress, nil))
 }
 
 // dbusReaderFunc is expected to return an io.ReadCloser providing the ouput of
