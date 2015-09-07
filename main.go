@@ -42,6 +42,8 @@ import (
 	"github.com/blabber/jollanotifications/internal/jn"
 )
 
+const version = "v0.1.0"
+
 var (
 	s                state
 	verbose          = flag.Bool("verbose", false, "verbose logging")
@@ -70,6 +72,8 @@ type Notification struct {
 }
 
 func main() {
+	log.Printf("jollanotifications (%v)", version)
+
 	flag.Parse()
 
 	c := make(chan *Notification)
