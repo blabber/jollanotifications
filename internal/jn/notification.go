@@ -31,30 +31,21 @@ func NewNotificationFromMonitorString(ms string) (*Notification, error) {
 
 	s := bufio.NewScanner(strings.NewReader(ms))
 	for s.Scan() {
-		if body {
+		switch {
+		case body:
 			n.Body = extractString(s.Text())
 			body = false
-			continue
-		}
-		if summary {
+		case summary:
 			n.Summary = extractString(s.Text())
 			summary = false
-			continue
-		}
-
-		if strings.Contains(s.Text(), `string "x-nemo-preview-body"`) {
+		case strings.Contains(s.Text(), `string "x-nemo-preview-body"`):
 			body = true
-			continue
-		}
-		if strings.Contains(s.Text(), `string "x-nemo-owner"`) {
+		case strings.Contains(s.Text(), `string "x-nemo-owner"`):
 			if len(n.Summary) == 0 {
 				summary = true
 			}
-			continue
-		}
-		if strings.Contains(s.Text(), `string "x-nemo-preview-summary"`) {
+		case strings.Contains(s.Text(), `string "x-nemo-preview-summary"`):
 			summary = true
-			continue
 		}
 	}
 	if err := s.Err(); err != nil {
