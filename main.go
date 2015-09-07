@@ -28,8 +28,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -96,10 +96,17 @@ func main() {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		logHTTPRequest(r)
 		http.ServeFile(w, r, path.Join(*htmlDir, r.URL.Path))
 	})
 
-	panic(http.ListenAndServe(*networkAddress, nil))
+	log.Printf("Listening on %v", *networkAddress)
+	log.Panic(http.ListenAndServe(*networkAddress, nil))
+}
+
+// logHTTPRequests logs *http.Request r.
+func logHTTPRequest(r *http.Request) {
+	log.Printf("Request from %v: %v %v", r.RemoteAddr, r.Method, r.URL.Path)
 }
 
 // dbusReaderFunc is expected to return an io.ReadCloser providing the ouput of
@@ -134,7 +141,7 @@ func dbusReader() (io.ReadCloser, error) {
 func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 	r, err := rf()
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	defer r.Close()
 
@@ -143,7 +150,7 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 	for s.Scan() {
 		n, err := jn.NewNotificationFromMonitorString(s.Text())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERR: %v\n", err)
+			log.Printf("Error: NewNotificationFromMonitorString: %v", err)
 			continue
 		}
 
@@ -151,13 +158,14 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 			continue
 		}
 
+		log.Printf("New Notification: %#v", n)
 		out <- &Notification{
 			n,
 			time.Now().Format(time.RFC822),
 		}
 	}
 	if err := s.Err(); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	close(out)
