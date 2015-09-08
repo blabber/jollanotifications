@@ -13,6 +13,8 @@
 // A JSON encoded representation of the displayed notifications can be accessed
 // via "/notifications".
 //
+// A websocket announcing new notifications can be accessed as "/websocket".
+//
 // Flags:
 //
 //	-html string
@@ -39,13 +41,16 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/websocket"
+
 	"github.com/blabber/jollanotifications/internal/jn"
 )
 
 const version = "v0.1.0+"
 
 var (
-	s                state
+	s state
+
 	verbose          = flag.Bool("verbose", false, "verbose logging")
 	maxNotifications = flag.Int("max", 10, "maximum number of notifications to serve")
 	networkAddress   = flag.String("listen", ":8080", "network address to listen on")
@@ -60,6 +65,10 @@ type state struct {
 	// Notifications is a slice of the 10 last notifications, represented
 	// by *Notification, or less if fewer notifications occured.
 	Notifications []*Notification
+
+	// websockets holds the channels used to push *Notification instances
+	// over a websocket.
+	websockets []chan<- *Notification
 }
 
 // Notification represents a time stamped notification.
@@ -89,6 +98,12 @@ func main() {
 				s.Notifications = s.Notifications[:*maxNotifications]
 			}
 			s.Unlock()
+
+			s.RLock()
+			for _, ws := range s.websockets {
+				ws <- n
+			}
+			s.RUnlock()
 		}
 	}()
 
@@ -105,6 +120,21 @@ func main() {
 		s.RUnlock()
 		w.Write(j)
 	})
+
+	http.Handle("/websocket", websocket.Handler(func(ws *websocket.Conn) {
+		wsc := make(chan *Notification)
+
+		s.Lock()
+		s.websockets = append(s.websockets, wsc)
+		s.Unlock()
+
+		for n := range wsc {
+			err := websocket.JSON.Send(ws, n)
+			if err != nil {
+				log.Printf("websocket.JSON.Send: %v", err)
+			}
+		}
+	}))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		logHTTPRequest(r)

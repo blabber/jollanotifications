@@ -30,13 +30,6 @@
 	<div class="container-fluid">
 		<div class="row">
 			<div class="col-lg-12">
-				<div class="alert alert-danger" role="alert" data-bind="visible: error">
-					Failed to poll for notifications.
-				</div>
-			<div class="col-lg-12">
-		</div>
-		<div class="row">
-			<div class="col-lg-12">
 				<table class="table table-striped">
 					<tbody data-bind="foreach: notifications">
 						<tr>
@@ -54,22 +47,25 @@
 		function ViewModel() {
 			var self = this;
 
-			self.error = ko.observable(false);
 			self.notifications = ko.observableArray([]);
 
 			self.refreshData = function() {
 				$.getJSON("/notifications", function(data) {
-					self.error(false);
 					self.notifications(data.Notifications);
 				})
-				.fail(function() {
-					self.error(true);
-				});
+			}
+
+			self.websocket = new WebSocket("ws://"+location.host+"/websocket");
+			self.websocket.onmessage = function(event) {
+				n = $.parseJSON(event.data)
+				if (self.notifications() != null && self.notifications().length > 0) {
+					self.notifications.unshift(n);
+				} else {
+					self.notifications([n]);
+				}
 			}
 
 			self.refreshData();
-
-			setInterval(self.refreshData, 3000);
 		}
 
 		ko.applyBindings(new ViewModel());
