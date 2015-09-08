@@ -8,6 +8,8 @@ package jn
 
 import (
 	"bufio"
+	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -62,6 +64,22 @@ func (n *Notification) IsEmpty() bool {
 		return false
 	}
 	return true
+}
+
+// String returns a string rerpresentation of *Notification n.
+func (n *Notification) String() string {
+	if n.IsEmpty() {
+		return "Empty notification"
+	}
+
+	var b bytes.Buffer
+	b.WriteString("Notification ")
+	if len(n.Summary) > 0 {
+		b.WriteString(fmt.Sprintf("summary: \"%s\" ", n.Summary))
+	}
+	b.WriteString(fmt.Sprintf("body: \"%s\"", n.Body))
+
+	return b.String()
 }
 
 // extractString removes the substring prefixing the first and suffixing the

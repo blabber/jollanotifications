@@ -42,7 +42,7 @@ import (
 	"github.com/blabber/jollanotifications/internal/jn"
 )
 
-const version = "v0.1.0"
+const version = "v0.1.0+"
 
 var (
 	s                state
@@ -169,11 +169,12 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 			continue
 		}
 
+		log.Printf("New Notification: %v", n)
+
 		if n.IsEmpty() {
 			continue
 		}
 
-		log.Printf("New Notification: %#v", n)
 		out <- &Notification{
 			n,
 			time.Now().Format(time.RFC822),

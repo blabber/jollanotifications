@@ -152,13 +152,31 @@ var testEmptyTable = []struct {
 	{&Notification{"NonEmptySummary", "NonEmptyBody"}, false},
 	{&Notification{"", "NonEmptyBody"}, false},
 	{&Notification{"NonEmptySummary", ""}, true},
-	{&Notification{"", ""}, true},
+	{&Notification{}, true},
 }
 
 func TestEmpty(t *testing.T) {
 	for _, tt := range testEmptyTable {
 		if tt.n.IsEmpty() != tt.expected {
 			t.Errorf("%#v.IsEmpty() != %v", tt.n, tt.expected)
+		}
+	}
+}
+
+var testStringTable = []struct {
+	n        *Notification
+	expected string
+}{
+	{&Notification{"NonEmptySummary", "NonEmptyBody"}, `Notification summary: "NonEmptySummary" body: "NonEmptyBody"`},
+	{&Notification{"", "NonEmptyBody"}, `Notification body: "NonEmptyBody"`},
+	{&Notification{"NonEmptySummary", ""}, `Empty notification`},
+	{&Notification{}, `Empty notification`},
+}
+
+func TestString(t *testing.T) {
+	for _, tt := range testStringTable {
+		if tt.n.String() != tt.expected {
+			t.Errorf("%v != %v", tt.n.String(), tt.expected)
 		}
 	}
 }
