@@ -4,40 +4,16 @@
 // think this stuff is worth it, you can buy me a beer in return.
 //                                                             Tobias Rehbein
 
-// jollanotifications serves a Jolla phone's notifications via a web interface.
-//
-// It sniffs for notification events on the dbus and serves a web view
-// displaying the last notifications. By default this web view is served via
-// "/index.html" on all network interfaces on port 8080.
-//
-// A JSON encoded representation of the displayed notifications can be accessed
-// via "/notifications".
-//
-// A websocket announcing new notifications can be accessed as "/websocket".
-//
-// Flags:
-//
-//	-html string
-//	      directory containing the web interface (default "./html")
-//	-listen string
-//	      network address to listen on (default ":8080")
-//	-max int
-//	      maximum number of notifications to serve (default 10)
-//	-verbose
-//	      verbose logging
-//
 package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"flag"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"sync"
 	"time"
 
@@ -60,44 +36,26 @@ var (
 // state represents the shared state used by the sniffer and served via web. An
 // embedded sync.RWMutex is used for synchronization.
 type state struct {
+	backlog *jn.Backlog
+
 	sync.RWMutex
 
-	// Notifications is a slice of the 10 last notifications, represented
-	// by *Notification, or less if fewer notifications occured.
-	Notifications []*Notification
-
-	// websockets holds the channels used to push *Notification instances
-	// over a websocket.
-	websockets []chan<- *Notification
-}
-
-// Notification represents a time stamped notification.
-type Notification struct {
-	*jn.Notification
-
-	// Time is a string representation of the time when the notification
-	// occured.
-	Time string
+	// websockets holds the channels used to push *jn.Notification
+	// instances over a websocket.
+	websockets []chan<- *jn.Notification
 }
 
 func main() {
 	log.Printf("jollanotifications (%v)", version)
 
 	flag.Parse()
-
-	c := make(chan *Notification)
-	go sniffDbus(dbusReader, c)
+	s.backlog = jn.NewBacklog(*maxNotifications)
 
 	go func() {
+		c := sniffDbus(dbusReader)
+
 		for n := range c {
-			s.Lock()
-			// prepend the new *Notification to s.Notifications
-			s.Notifications = append([]*Notification{n}, s.Notifications...)
-			// trim s.Notifications to maximum size
-			if len(s.Notifications) >= *maxNotifications {
-				s.Notifications = s.Notifications[:*maxNotifications]
-			}
-			s.Unlock()
+			s.backlog.Add(n)
 
 			s.RLock()
 			for _, ws := range s.websockets {
@@ -107,22 +65,11 @@ func main() {
 		}
 	}()
 
-	http.HandleFunc("/notifications", func(w http.ResponseWriter, r *http.Request) {
-		if *verbose {
-			logHTTPRequest(r)
-		}
-
-		s.RLock()
-		j, err := json.Marshal(s)
-		if err != nil {
-			panic(err)
-		}
-		s.RUnlock()
-		w.Write(j)
-	})
+	http.Handle("/", rootHandler())
+	http.Handle("/notifications", backlogHandler())
 
 	http.Handle("/websocket", websocket.Handler(func(ws *websocket.Conn) {
-		wsc := make(chan *Notification)
+		wsc := make(chan *jn.Notification)
 
 		s.Lock()
 		s.websockets = append(s.websockets, wsc)
@@ -136,18 +83,8 @@ func main() {
 		}
 	}))
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		logHTTPRequest(r)
-		http.ServeFile(w, r, path.Join(*htmlDir, r.URL.Path))
-	})
-
 	log.Printf("Listening on %v", *networkAddress)
 	log.Panic(http.ListenAndServe(*networkAddress, nil))
-}
-
-// logHTTPRequests logs *http.Request r.
-func logHTTPRequest(r *http.Request) {
-	log.Printf("Request from %v: %v %v", r.RemoteAddr, r.Method, r.URL.Path)
 }
 
 // dbusReaderFunc is expected to return an io.ReadCloser providing the ouput of
@@ -177,42 +114,53 @@ func dbusReader() (io.ReadCloser, error) {
 	return r, nil
 }
 
+// timeFormatter is passed to jn.NewNotificationFromMonitorString to format the
+// time when the notification was received.
+func timeFormatter(t time.Time) string {
+	return time.Now().Format(time.RFC822)
+}
+
 // sniffDbus scans the io.ReadCloser returned by rf for records and returns
-// *Notification via out.
-func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
-	r, err := rf()
-	if err != nil {
-		log.Panic(err)
-	}
-	defer r.Close()
+// *Notification via the returned channel.
+func sniffDbus(rf dbusReaderFunc) <-chan *jn.Notification {
+	out := make(chan *jn.Notification)
 
-	s := bufio.NewScanner(r)
-	s.Split(jn.ScanNotifications)
-	for s.Scan() {
-		if *verbose {
-			log.Printf("D-Bus record: %v", s.Text())
-		}
-
-		n, err := jn.NewNotificationFromMonitorString(s.Text())
+	go func() {
+		r, err := rf()
 		if err != nil {
-			log.Printf("Error: NewNotificationFromMonitorString: %v", err)
-			continue
+			log.Panic(err)
+		}
+		defer r.Close()
+
+		s := bufio.NewScanner(r)
+		s.Split(jn.ScanNotifications)
+		for s.Scan() {
+			if *verbose {
+				log.Printf("D-Bus record: %v", s.Text())
+			}
+
+			n, err := jn.NewNotificationFromMonitorString(s.Text(), timeFormatter)
+			if err != nil {
+				log.Printf("Error: NewNotificationFromMonitorString: %v", err)
+				continue
+			}
+
+			if *verbose {
+				log.Printf("New Notification: %v", n)
+			}
+
+			if n.IsEmpty() {
+				continue
+			}
+
+			out <- n
+		}
+		if err := s.Err(); err != nil {
+			log.Panic(err)
 		}
 
-		log.Printf("New Notification: %v", n)
+		close(out)
+	}()
 
-		if n.IsEmpty() {
-			continue
-		}
-
-		out <- &Notification{
-			n,
-			time.Now().Format(time.RFC822),
-		}
-	}
-	if err := s.Err(); err != nil {
-		log.Panic(err)
-	}
-
-	close(out)
+	return out
 }

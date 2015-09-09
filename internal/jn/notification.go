@@ -11,10 +11,19 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 )
+
+// TimeFormatter is a function that returns a string representation of
+// time.Time t.
+type TimeFormatter func(time time.Time) string
 
 // Notification represents a notification.
 type Notification struct {
+	// Time is a string representing the time when the notification
+	// occured.
+	Time string
+
 	// Summary is the summary of the notification. This is misleading
 	// though, as this normally describes the source of the notification.
 	Summary string
@@ -24,12 +33,16 @@ type Notification struct {
 }
 
 // NewNotificationFromMonitorString returns the *Notification represented by
-// the dbus-monitor output string ms.
-func NewNotificationFromMonitorString(ms string) (*Notification, error) {
+// the dbus-monitor output string ms. tf is called with the current time and
+// the returned string is used as the value for the Time field of the newly
+// created *Notification.
+func NewNotificationFromMonitorString(ms string, tf TimeFormatter) (*Notification, error) {
 	body := false
 	summary := false
 
-	n := &Notification{}
+	n := &Notification{
+		Time: tf(time.Now()),
+	}
 
 	s := bufio.NewScanner(strings.NewReader(ms))
 	for s.Scan() {
@@ -73,7 +86,7 @@ func (n *Notification) String() string {
 	}
 
 	var b bytes.Buffer
-	b.WriteString("Notification ")
+	b.WriteString(fmt.Sprintf("Notification time: \"%s\" ", n.Time))
 	if len(n.Summary) > 0 {
 		b.WriteString(fmt.Sprintf("summary: \"%s\" ", n.Summary))
 	}
