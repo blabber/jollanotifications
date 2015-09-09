@@ -56,39 +56,21 @@ var (
 // embedded sync.RWMutex is used for synchronization.
 type state struct {
 	sync.RWMutex
-
-	// Notifications is a slice of the 10 last notifications, represented
-	// by *Notification, or less if fewer notifications occured.
-	Notifications []*Notification
-}
-
-// Notification represents a time stamped notification.
-type Notification struct {
-	*jn.Notification
-
-	// Time is a string representation of the time when the notification
-	// occured.
-	Time string
+	backlog *jn.Backlog
 }
 
 func main() {
 	log.Printf("jollanotifications (%v)", version)
 
 	flag.Parse()
+	s.backlog = jn.NewBacklog(*maxNotifications)
 
-	c := make(chan *Notification)
+	c := make(chan *jn.Notification)
 	go sniffDbus(dbusReader, c)
 
 	go func() {
 		for n := range c {
-			s.Lock()
-			// prepend the new *Notification to s.Notifications
-			s.Notifications = append([]*Notification{n}, s.Notifications...)
-			// trim s.Notifications to maximum size
-			if len(s.Notifications) >= *maxNotifications {
-				s.Notifications = s.Notifications[:*maxNotifications]
-			}
-			s.Unlock()
+			s.backlog.Add(n)
 		}
 	}()
 
@@ -97,12 +79,11 @@ func main() {
 			logHTTPRequest(r)
 		}
 
-		s.RLock()
-		j, err := json.Marshal(s)
+		j, err := json.Marshal(s.backlog.Notifications())
 		if err != nil {
-			panic(err)
+			log.Panic(err)
 		}
-		s.RUnlock()
+
 		w.Write(j)
 	})
 
@@ -147,9 +128,15 @@ func dbusReader() (io.ReadCloser, error) {
 	return r, nil
 }
 
+// timeFormatter is passed to jn.NewNotificationFromMonitorString to format the
+// time when the notification was received.
+func timeFormatter(t time.Time) string {
+	return time.Now().Format(time.RFC822)
+}
+
 // sniffDbus scans the io.ReadCloser returned by rf for records and returns
 // *Notification via out.
-func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
+func sniffDbus(rf dbusReaderFunc, out chan<- *jn.Notification) {
 	r, err := rf()
 	if err != nil {
 		log.Panic(err)
@@ -163,7 +150,7 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 			log.Printf("D-Bus record: %v", s.Text())
 		}
 
-		n, err := jn.NewNotificationFromMonitorString(s.Text())
+		n, err := jn.NewNotificationFromMonitorString(s.Text(), timeFormatter)
 		if err != nil {
 			log.Printf("Error: NewNotificationFromMonitorString: %v", err)
 			continue
@@ -175,10 +162,7 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *Notification) {
 			continue
 		}
 
-		out <- &Notification{
-			n,
-			time.Now().Format(time.RFC822),
-		}
+		out <- n
 	}
 	if err := s.Err(); err != nil {
 		log.Panic(err)

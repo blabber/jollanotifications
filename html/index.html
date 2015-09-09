@@ -60,7 +60,7 @@
 			self.refreshData = function() {
 				$.getJSON("/notifications", function(data) {
 					self.error(false);
-					self.notifications(data.Notifications);
+					self.notifications(data);
 				})
 				.fail(function() {
 					self.error(true);

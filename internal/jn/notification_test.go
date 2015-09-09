@@ -8,6 +8,7 @@ package jn
 
 import (
 	"testing"
+	"time"
 )
 
 const threemaMonitorString = `method call sender=:1.22 -> dest=org.freedesktop.Notifications serial=136 path=/org/freedesktop/Notifications; interface=org.freedesktop.Notifications; member=Notify
@@ -37,6 +38,7 @@ const threemaMonitorString = `method call sender=:1.22 -> dest=org.freedesktop.N
    int32 -1`
 
 var threemaNotification = &Notification{
+	Time:    "MockedTime",
 	Body:    "3 neue Nachrichten",
 	Summary: "Herp Derp",
 }
@@ -66,6 +68,7 @@ const clockMonitorString = `method call sender=:1.117 -> dest=org.freedesktop.No
    int32 -1`
 
 var clockNotification = &Notification{
+	Time:    "MockedTime",
 	Body:    "Verbleibende Zeit: 17 Stunden und 18 Minuten",
 	Summary: "Uhr",
 }
@@ -119,12 +122,17 @@ const commhistorydMonitorString = `method call sender=:1.36 -> dest=org.freedesk
    int32 -1`
 
 var commhistorydNotification = &Notification{
+	Time:    "MockedTime",
 	Body:    "Test",
 	Summary: "Herp Derp",
 }
 
+func timeFormatterMock(t time.Time) string {
+	return "MockedTime"
+}
+
 func testNewNotificationFromMonitorString(t *testing.T, ms string, n *Notification) {
-	nn, err := NewNotificationFromMonitorString(ms)
+	nn, err := NewNotificationFromMonitorString(ms, timeFormatterMock)
 	if err != nil {
 		t.Error(err)
 	}
@@ -149,10 +157,10 @@ var testEmptyTable = []struct {
 	n        *Notification
 	expected bool
 }{
-	{&Notification{"NonEmptySummary", "NonEmptyBody"}, false},
-	{&Notification{"", "NonEmptyBody"}, false},
-	{&Notification{"NonEmptySummary", ""}, true},
-	{&Notification{}, true},
+	{&Notification{"MockedTime", "NonEmptySummary", "NonEmptyBody"}, false},
+	{&Notification{"MockedTime", "", "NonEmptyBody"}, false},
+	{&Notification{"MockedTime", "NonEmptySummary", ""}, true},
+	{&Notification{"MockedTime", "", ""}, true},
 }
 
 func TestEmpty(t *testing.T) {
@@ -167,10 +175,10 @@ var testStringTable = []struct {
 	n        *Notification
 	expected string
 }{
-	{&Notification{"NonEmptySummary", "NonEmptyBody"}, `Notification summary: "NonEmptySummary" body: "NonEmptyBody"`},
-	{&Notification{"", "NonEmptyBody"}, `Notification body: "NonEmptyBody"`},
-	{&Notification{"NonEmptySummary", ""}, `Empty notification`},
-	{&Notification{}, `Empty notification`},
+	{&Notification{"MockedTime", "NonEmptySummary", "NonEmptyBody"}, `Notification time: "MockedTime" summary: "NonEmptySummary" body: "NonEmptyBody"`},
+	{&Notification{"MockedTime", "", "NonEmptyBody"}, `Notification time: "MockedTime" body: "NonEmptyBody"`},
+	{&Notification{"MockedTime", "NonEmptySummary", ""}, `Empty notification`},
+	{&Notification{"MockedTime", "", ""}, `Empty notification`},
 }
 
 func TestString(t *testing.T) {
