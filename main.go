@@ -43,10 +43,9 @@ func main() {
 	flag.Parse()
 	s.backlog = jn.NewBacklog(*maxNotifications)
 
-	c := make(chan *jn.Notification)
-	go sniffDbus(dbusReader, c)
-
 	go func() {
+		c := sniffDbus(dbusReader)
+
 		for n := range c {
 			s.backlog.Add(n)
 		}
@@ -93,40 +92,46 @@ func timeFormatter(t time.Time) string {
 }
 
 // sniffDbus scans the io.ReadCloser returned by rf for records and returns
-// *Notification via out.
-func sniffDbus(rf dbusReaderFunc, out chan<- *jn.Notification) {
-	r, err := rf()
-	if err != nil {
-		log.Panic(err)
-	}
-	defer r.Close()
+// *Notification via the returned channel.
+func sniffDbus(rf dbusReaderFunc) <-chan *jn.Notification {
+	out := make(chan *jn.Notification)
 
-	s := bufio.NewScanner(r)
-	s.Split(jn.ScanNotifications)
-	for s.Scan() {
-		if *verbose {
-			log.Printf("D-Bus record: %v", s.Text())
-		}
-
-		n, err := jn.NewNotificationFromMonitorString(s.Text(), timeFormatter)
+	go func() {
+		r, err := rf()
 		if err != nil {
-			log.Printf("Error: NewNotificationFromMonitorString: %v", err)
-			continue
+			log.Panic(err)
+		}
+		defer r.Close()
+
+		s := bufio.NewScanner(r)
+		s.Split(jn.ScanNotifications)
+		for s.Scan() {
+			if *verbose {
+				log.Printf("D-Bus record: %v", s.Text())
+			}
+
+			n, err := jn.NewNotificationFromMonitorString(s.Text(), timeFormatter)
+			if err != nil {
+				log.Printf("Error: NewNotificationFromMonitorString: %v", err)
+				continue
+			}
+
+			if *verbose {
+				log.Printf("New Notification: %v", n)
+			}
+
+			if n.IsEmpty() {
+				continue
+			}
+
+			out <- n
+		}
+		if err := s.Err(); err != nil {
+			log.Panic(err)
 		}
 
-		if *verbose {
-			log.Printf("New Notification: %v", n)
-		}
+		close(out)
+	}()
 
-		if n.IsEmpty() {
-			continue
-		}
-
-		out <- n
-	}
-	if err := s.Err(); err != nil {
-		log.Panic(err)
-	}
-
-	close(out)
+	return out
 }
