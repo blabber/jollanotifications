@@ -17,9 +17,7 @@ import (
 // current notification backlog.
 func backlogHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if *verbose {
-			logHTTPRequest(r)
-		}
+		logHTTPRequest(r)
 
 		j, err := json.Marshal(s.backlog.Notifications())
 		if err != nil {
@@ -40,5 +38,7 @@ func rootHandler() http.Handler {
 
 // logHTTPRequests logs *http.Request r.
 func logHTTPRequest(r *http.Request) {
-	log.Printf("Request from %v: %v %v", r.RemoteAddr, r.Method, r.URL.Path)
+	if *verbose {
+		log.Printf("Request from %v: %v %v", r.RemoteAddr, r.Method, r.URL.Path)
+	}
 }

@@ -114,7 +114,9 @@ func sniffDbus(rf dbusReaderFunc, out chan<- *jn.Notification) {
 			continue
 		}
 
-		log.Printf("New Notification: %v", n)
+		if *verbose {
+			log.Printf("New Notification: %v", n)
+		}
 
 		if n.IsEmpty() {
 			continue
