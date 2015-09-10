@@ -39,7 +39,8 @@ func (b *Backlog) Add(n *Notification) {
 	// prepend the new *Notification to s.Notifications
 	b.notifications = append([]*Notification{n}, b.notifications...)
 	// trim s.Notifications to maximum size
-	if len(b.notifications) >= b.size {
+	if len(b.notifications) > b.size {
+		b.notifications[b.size] = nil
 		b.notifications = b.notifications[:b.size]
 	}
 	b.mtx.Unlock()
