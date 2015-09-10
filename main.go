@@ -51,7 +51,6 @@ func main() {
 		for n := range c {
 			s.backlog.Add(n)
 			s.websockets.Send(n)
-
 		}
 	}()
 
