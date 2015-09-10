@@ -11,6 +11,10 @@ import (
 	"log"
 	"net/http"
 	"path"
+
+	"golang.org/x/net/websocket"
+
+	"github.com/blabber/jollanotifications/internal/jn"
 )
 
 // backlogHandler returns a http.Handler serving a JSON representation of the
@@ -41,4 +45,36 @@ func logHTTPRequest(r *http.Request) {
 	if *verbose {
 		log.Printf("Request from %v: %v %v", r.RemoteAddr, r.Method, r.URL.Path)
 	}
+}
+
+// websocketHandler returns a websocket.Handler serving new notifications.
+func websocketHandler() websocket.Handler {
+	return websocket.Handler(func(ws *websocket.Conn) {
+		if *verbose {
+			log.Printf("Websocket connected")
+		}
+
+		c := make(chan *jn.Notification)
+		id := s.websockets.Add(c)
+
+		for n := range c {
+			// This would be a good place to check if ws is still
+			// connected. The question is how to check for a
+			// connection. Until this is answered, rely on the
+			// error returned when a message is send over a
+			// unconnected websocket.
+			err := websocket.JSON.Send(ws, n)
+			if err != nil {
+				log.Printf("Send: %v", err)
+				break
+			}
+		}
+
+		s.websockets.Remove(id)
+		close(c)
+		err := ws.Close()
+		if err != nil {
+			log.Printf("Close: %v", err)
+		}
+	})
 }

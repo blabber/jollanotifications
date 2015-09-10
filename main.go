@@ -14,10 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"sync"
 	"time"
-
-	"golang.org/x/net/websocket"
 
 	"github.com/blabber/jollanotifications/internal/jn"
 )
@@ -36,52 +33,31 @@ var (
 // state represents the shared state used by the sniffer and served via web. An
 // embedded sync.RWMutex is used for synchronization.
 type state struct {
-	backlog *jn.Backlog
-
-	sync.RWMutex
-
-	// websockets holds the channels used to push *jn.Notification
-	// instances over a websocket.
-	websockets []chan<- *jn.Notification
+	backlog    *jn.Backlog
+	websockets *jn.WebsocketManager
 }
 
 func main() {
 	log.Printf("jollanotifications (%v)", version)
 
 	flag.Parse()
+
 	s.backlog = jn.NewBacklog(*maxNotifications)
+	s.websockets = jn.NewWebsocketManager()
 
 	go func() {
 		c := sniffDbus(dbusReader)
 
 		for n := range c {
 			s.backlog.Add(n)
+			s.websockets.Send(n)
 
-			s.RLock()
-			for _, ws := range s.websockets {
-				ws <- n
-			}
-			s.RUnlock()
 		}
 	}()
 
 	http.Handle("/", rootHandler())
 	http.Handle("/notifications", backlogHandler())
-
-	http.Handle("/websocket", websocket.Handler(func(ws *websocket.Conn) {
-		wsc := make(chan *jn.Notification)
-
-		s.Lock()
-		s.websockets = append(s.websockets, wsc)
-		s.Unlock()
-
-		for n := range wsc {
-			err := websocket.JSON.Send(ws, n)
-			if err != nil {
-				log.Printf("websocket.JSON.Send: %v", err)
-			}
-		}
-	}))
+	http.Handle("/websocket", websocketHandler())
 
 	log.Printf("Listening on %v", *networkAddress)
 	log.Panic(http.ListenAndServe(*networkAddress, nil))

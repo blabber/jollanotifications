@@ -18,10 +18,10 @@ import (
 //
 // To items in the backlog can be retrieved by calling Notifications.
 //
-// Add and Notifications are synchronized and can be called from concurrent go
-// routines without additional synchronization.
+// Add and Notifications are synchronized and can be called from concurrent
+// goroutines without additional synchronization.
 type Backlog struct {
-	mtx           sync.RWMutex
+	sync.RWMutex
 	size          int
 	notifications []*Notification
 }
@@ -35,7 +35,7 @@ func NewBacklog(size int) *Backlog {
 // Add adds a new *Notification to the backlog. If the new number of items
 // exceeds the maximum number of items, the oldest item is removed.
 func (b *Backlog) Add(n *Notification) {
-	b.mtx.Lock()
+	b.Lock()
 	// prepend the new *Notification to s.Notifications
 	b.notifications = append([]*Notification{n}, b.notifications...)
 	// trim s.Notifications to maximum size
@@ -43,15 +43,15 @@ func (b *Backlog) Add(n *Notification) {
 		b.notifications[b.size] = nil
 		b.notifications = b.notifications[:b.size]
 	}
-	b.mtx.Unlock()
+	b.Unlock()
 }
 
 // Notifications returns the items contained in the backlog as a slice of
 // *Notification. The items are sorted. The newest item has index 0, the oldest
 // index size-1.
 func (b *Backlog) Notifications() []*Notification {
-	b.mtx.RLock()
-	defer b.mtx.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.notifications
 }
